@@ -1,0 +1,1039 @@
+---
+title: "Subinhibitory Concentration of Antibiotics (SICA)"
+author: "Molly Kuhs"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: show
+    toc: yes
+    toc_float: True
+    toc_depth: 4
+    number_sections: False
+    highlight: pygments
+    theme: cosmo
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+   font-size: 14px;
+}
+td {  /* Table  */
+   font-size: 12px;
+}
+h1 { /* Header 1 */
+ font-size: 26px;
+ font-weight: bold;
+}
+h2 { /* Header 2 */
+ font-size: 26px;
+ font-weight: bold;
+}
+h3 { /* Header 3 */
+ font-size: 18px;
+ font-weight: bold;
+}
+h4 { /* Header 4 */
+ font-size: 16px;
+ font-weight: bold;
+}
+code.r{ /* Code block */
+  font-size: 12px;
+}
+pre { /* Code block */
+  font-size: 12px
+}
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    background-color: #848587;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F)
+```
+
+Data Availability: 
+
+Full dataset, code, and figures can be found here: https://github.com/makuhs/SICA
+
+Note: Included code creates base versions of all published figures. Additional elements such as legends, titles, and annotations were added via post-processing in Adobe Illustrator. 
+
+## Packages
+```{r}
+library(tidyverse)
+library(multcomp)
+library(vegan)
+library(ggpubr)
+library(dplyr)
+library(vcd)
+```
+
+## Data 
+### Data Load
+```{r}
+data <- read.csv("fullBiologSICA.csv")%>%
+  subset(select = -X )
+```
+
+### Nutrient Use Profiles
+```{r}
+metrics <- data %>%
+  mutate(niche.width = rowSums(.[5:99]!=0))%>%
+  mutate(total.growth = rowSums(.[5:99]))%>%
+  mutate(growth.eff = .$total.growth / .$niche.width)%>%
+  dplyr::select(Plot, Letter,SICA, Isolate, niche.width, total.growth, growth.eff)
+
+metricControl <- metrics %>%
+  filter(SICA == "Control")%>%
+  subset(select = -SICA)%>%
+  rename_with(~c("nw_c", "tg_c", "ge_c"), c(niche.width, total.growth, growth.eff))
+
+metricSICA <- metrics %>%
+  filter(SICA != "Control")
+
+metrics2 <- merge(metricSICA, metricControl, by=c("Plot", "Letter", "Isolate")) %>%
+  group_by(SICA) %>%
+  filter (niche.width > 25 & total.growth >= 2) # remove isolates with extreme low growth
+
+#calculate difference from control 
+diff <- metrics2 %>%
+  mutate(nw_diff = (niche.width - nw_c),
+         tg_diff = (total.growth - tg_c),
+         ge_diff = (growth.eff - ge_c)) 
+
+diffSum <- metrics %>%
+  filter(niche.width >= 25 & total.growth >2)
+
+```
+
+## Main 
+
+### Figure 1
+```{r}
+#Nutrient Use Phenotypes
+diffSum2 <- diffSum %>%
+  mutate(Treatment = case_when(Plot == "3" ~ "LNI",
+                               Plot == "4" ~ "HNI"))
+
+diffSum2$SICA <- factor(diffSum2$SICA, levels = c("Control", "Streptomycin", "Vancomycin", "Streptothricin", "Rifampicin", "Tetracycline", "Chloramphenicol"))
+
+diffSum2$Treatment <- factor(diffSum2$Treatment, levels = c("LNI", "HNI"))
+
+# categorize difference in presence of SICA as increasing, decreasing or no change from control 
+subset <- diff %>%
+  mutate(nw_direction = case_when(nw_diff > 0 ~ "I", 
+                                  nw_diff < 0 ~ "D", 
+                                  nw_diff == 0 ~"NC"),
+         tg_direction = case_when(tg_diff > 0 ~ "I", 
+                                  tg_diff < 0 ~ "D", 
+                                  tg_diff == 0 ~"NC"),
+         ge_direction = case_when(ge_diff > 0 ~ "I", 
+                                  ge_diff < 0 ~ "D", 
+                                  ge_diff == 0 ~"NC"),
+         Treatment = case_when(Plot == "3" ~ "LNI",
+                               Plot == "4" ~ "HNI")) 
+
+subset <- subset[,-8:-12]
+subset$Treatment <- factor(subset$Treatment, levels = c("LNI", "HNI"))
+
+controlSub <- diffSum2 %>%
+  filter(SICA == "Control")
+
+
+color <- c("grey80", 
+           "#c7dbed",
+           "#c7dbed", 
+           "#c7dbed", 
+           "#c7dbed", 
+           "#c7dbed", 
+           "#c7dbed",
+           "#36688a", #for points: decrease with SICA
+           "#a6453d", #for points: increase with SICA
+           "grey65") #for porints: sig. change with SICA
+
+fill <- c("grey70", "#5499C7","#5499C7","#5499C7","#5499C7","#5499C7","#5499C7")
+```
+
+#### 1A
+```{r}
+
+#Niche Width
+a1<- ggplot(diffSum2, aes(SICA, niche.width, fill = SICA, color = SICA))+
+  geom_boxplot(outlier.shape = NA, alpha=0.2, size=0.6)+ 
+  geom_point(aes(SICA, niche.width), size = 1, alpha=0.6, data=controlSub)+
+  geom_point(aes(SICA, niche.width, color = nw_direction), size = 1, alpha=0.6, data = subset)+
+  labs(x = "",
+       y= "Niche Width\n")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        panel.spacing = unit(2.5, "lines"),
+        axis.title=element_text(size=9),
+        strip.text.x=element_text(face = "bold"))+
+  facet_wrap(~Treatment)+
+  scale_color_manual(values=color)+
+  scale_fill_manual(values=fill)
+
+#LNI niche width ANOVA 
+modnw3 <- diffSum2 %>%
+  filter(Plot == 3) %>%
+  aov(niche.width ~ SICA, data=.)
+
+summary(modnw3)
+
+#HNI niche width ANOVA 
+modnw4 <- diffSum2 %>%
+  filter(Plot == 4) %>%
+  aov(niche.width ~ SICA, data=.)
+
+summary(modnw4)
+TukeyHSD(modnw4)
+
+modnw4Comp <- glht(modnw4, linfct=mcp(SICA="Tukey"))
+cld(modnw4Comp)
+
+```
+
+#### 1B
+```{r}
+
+#Total Growth 
+b1<- ggplot(diffSum2, aes(SICA, total.growth, fill = SICA, color = SICA))+
+  geom_boxplot(outlier.shape = NA, alpha=0.2, size=0.6)+ 
+  geom_point(aes(SICA, total.growth), size = 1, alpha=0.6, data=controlSub)+
+  geom_point(aes(SICA, total.growth, color = tg_direction), size = 1, alpha=0.6, data = subset)+
+  labs(x = "",
+       y= "Total Growth\n")+
+  theme_minimal()+
+  facet_wrap(~Treatment)+
+  theme(legend.position = "none",
+        panel.spacing = unit(2.5, "lines"),
+        axis.title=element_text(size=9),
+        strip.text.x=element_blank(),
+        axis.text.x = element_text(angle = 45, hjust=1))+
+  scale_color_manual(values=color)+
+  scale_fill_manual(values=fill)
+
+#LNI total growth ANOVA 
+modtg3 <- diffSum2 %>%
+  filter(Plot == 3) %>%
+  aov(total.growth ~ SICA, data=.)
+summary(modtg3)
+
+#HNI total growth ANOVA 
+modtg4 <- diffSum2 %>%
+  filter(Plot == 4) %>%
+  aov(total.growth ~ SICA, data=.)
+
+summary(modtg4)
+TukeyHSD(modtg4)
+
+modtg4Comp <- glht(modtg4, linfct=mcp(SICA="Tukey"))
+cld(modtg4Comp)
+
+```
+
+#### 1C
+```{r}
+biologMap <- data
+set.seed(10194)
+
+#LNI  
+bio3 <- biologMap %>%
+  filter(Plot == "3")
+
+data3 <- bio3[5:ncol(bio3)]
+p3Matrix <- as.matrix(data3)
+p3Meta <- bio3[1:4]
+
+bio.3.dist <- vegdist(p3Matrix, method='bray')
+
+adonis2(bio.3.dist~p3Meta$SICA)
+
+bd3<- betadisper(bio.3.dist, p3Meta$SICA)
+anova(bd3)
+permutest(bd3)
+```
+
+```{r, results = "hide"}
+bio.3.nmds <- metaMDS(bio.3.dist,
+                      distance = 'bray',
+                      k=2, try=100, trymax=250)
+```
+
+```{r}
+bio.3.nmds.points <- data.frame(bio.3.nmds$points)
+bio.3.nmds.points$SICA <- as.factor(bio3$SICA)
+
+bio.3.nmds.points$SICA <- factor(bio.3.nmds.points$SICA, levels = c("Control", "Chloramphenicol", "Rifampicin", "Streptomycin", "Streptothricin", "Tetracycline", "Vancomycin"))
+
+bio3C <- bio.3.nmds.points %>%
+  filter(SICA == "Control")
+
+nds1<- bio.3.nmds.points %>%
+  filter(SICA != "Control") %>%
+  ggplot(., aes(x=MDS1, y=MDS2, color = SICA)) +
+  geom_point(data = bio3C, aes(MDS1, MDS2), size = 1)+
+  stat_ellipse(data = bio3C, aes(MDS1, MDS2), geom = "polygon", fill = "grey65", alpha=0.2, linetype = 2, show.legend = F)+
+  stat_ellipse(show.legend = F)+
+  geom_point(size = 1, alpha=0.8)+
+  scale_color_manual(values = c("grey65", #Control
+                                "#ee8e7d", #Chlor
+                                "#f7c981", #Rif
+                                "#add193", #Streptom
+                                "#c2e8e8", #Streptot
+                                "#76add2", #Tet
+                                "#c0b8d4"))+ #Vanc
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title=element_text(size=9))+
+  labs(x='\nMDS1', 
+       Y='MDS2\n', 
+       color='')+
+  ylim(-1.3, 1.3)+
+  xlim(-1.8, 1.8)
+
+#HNI 
+bio4 <- biologMap %>%
+  filter(Plot == "4")
+
+data4 <- bio4[5:ncol(bio4)]
+p4Matrix <- as.matrix(data4)
+p4Meta <- bio4[1:4]
+
+bio.4.dist <- p4Matrix %>%
+  vegdist(method='bray')
+
+adonis2(bio.4.dist~p4Meta$SICA)
+
+bd4 <- betadisper(bio.4.dist, p4Meta$SICA)
+permutest(bd4)
+```
+
+```{r, results = "hide"}
+bio.4.nmds <- metaMDS(bio.4.dist,
+                      distance = 'bray',
+                      k=2, try=100, trymax=250)
+```
+
+```{r}
+bio.4.nmds.points <- data.frame(bio.4.nmds$points)
+bio.4.nmds.points$SICA <- as.factor(bio4$SICA)
+
+bio.4.nmds.points$SICA <- factor(bio.4.nmds.points$SICA, levels = c("Control", "Chloramphenicol", "Rifampicin", "Streptomycin", "Streptothricin", "Tetracycline", "Vancomycin"))
+
+bio4C <- bio.4.nmds.points %>%
+  filter(SICA == "Control")
+
+nds2<- bio.4.nmds.points %>%
+  filter(SICA != "Control") %>%
+  ggplot(., aes(x=MDS1, y=MDS2, color = SICA)) +
+  geom_point(data = bio4C, aes(MDS1, MDS2), size = 1, show.legend = F)+
+  stat_ellipse(data = bio4C, aes(MDS1, MDS2), geom = "polygon", fill = "grey65", alpha=0.2, linetype = 2, show.legend = F)+
+  stat_ellipse(show.legend = F)+
+  geom_point(size = 1, alpha=0.7)+
+  scale_color_manual(values = c("grey65",
+                                "#ee8e7d", 
+                                "#f7c981", 
+                                "#add193",
+                                "#c2e8e8",
+                                "#76add2",
+                                "#c0b8d4"))+
+  theme_minimal() +
+  labs(x='\nMDS1', 
+       Y='MDS2\n', 
+       color='')+
+  theme(legend.position = "none",
+        axis.title=element_text(size=9))+
+  ylim(-1.3, 1.3)+
+  xlim(-1.8, 1.8)
+
+# combine panels 
+c1<- ggarrange(nds1, NULL, nds2,
+               nrow = 1, 
+               widths = c(1, 0.05, 1))
+```
+
+#### Final
+```{r, fig.dim = c(5, 7)}
+finalfig1 <- ggarrange(a1, b1, c1,
+                       nrow = 3,
+                       heights = c(1.2, 1.5, 1.2))
+finalfig1
+
+ggsave("finalfig1.pdf", width = 5.5, height = 7.7, units = "in")
+
+```
+
+
+### Figure 2 
+
+```{r}
+biolog_long <- data %>%
+  pivot_longer(cols = 'B1':'H12',
+               names_to = "BiologWell", 
+               values_to = "OD", 
+               values_drop_na = TRUE)
+
+#add specific carbon source information to growth data
+c_class <- read.csv("Biolog_Nutrient_List.csv")
+cClassTable <- c_class[,c(1,2)]
+
+nutCat <- merge(biolog_long, c_class, by="BiologWell")%>%
+  mutate(nutCount = case_when(OD>0~"1",
+                              OD<!0~"0"))
+nutCat$nutCount <- as.numeric(nutCat$nutCount)
+nutCat$Plot <- as.factor(nutCat$Plot)
+
+#calculate difference in growth between control and SICAs
+control <- nutCat %>%
+  filter(SICA == "Control")
+
+nutChange <- merge(nutCat, control, by=c("Isolate", "Nutrient", "BiologWell", "Plot", "Letter", "CarbonSource", "CarbonType", "Count", "NumType"))%>%
+  rename(SICA = SICA.x,
+         Control = SICA.y,
+         ODs = OD.x,
+         ODc = OD.y) %>%
+  mutate(Change = ODs - ODc,
+         absChange = abs(Change),
+         relChange = round(Change/ODc,2))
+
+
+#determine 'significant change' threshold 
+nutChange %>%
+  summarise(mean = mean(absChange),
+            sd=sd(absChange),
+            n=n(),
+            se=sd/sqrt(n))
+
+#define change direction and significance by standard deviation (change > +/- 0.06OD)
+nutChangeCat <- nutChange %>%
+  mutate(nutCat = case_when(ODs==0 & ODc > 0 ~"supp",
+                            ODs > 0 & ODc == 0 ~ "induc",
+                            ODs > 0 & ODc > 0 & Change >= 0.06 ~ "incre",
+                            ODs > 0 & ODc > 0 & Change <= -0.06 ~ "decre",
+                            ODs >= 0 & ODc >= 0 & absChange < 0.06 ~ "no_grow"))%>%
+  filter(SICA != "Control")
+
+nutChangeCat$nutCat <- factor(nutChangeCat$nutCat, levels = c("supp", "decre", "incre", "induc", "no_grow"))
+nutChangeCat$SICA <- factor(nutChangeCat$SICA, levels = c("Chloramphenicol", "Tetracycline", "Rifampicin", "Streptomycin", "Vancomycin", "Streptothricin"))
+
+#responsiveness t-test: 
+t.test(absChange ~ Plot, data = nutChangeCat)
+
+
+```
+
+```{r,fig.dim=c(3.55, 5.5)}
+#LNI
+
+nutODLim3 <- nutCat %>%
+  filter(Plot == "3",
+         SICA == "Control") %>%
+  group_by(CarbonSource) %>%
+  summarise(mean = mean(OD))
+
+nutChangeCat3 <- nutChangeCat %>%
+  filter(Plot == "3")
+
+#manually remove isolates with niche.width > 25 & total.growth >= 2
+nutODLim3combo <- merge(nutChangeCat3, nutODLim3, by = "CarbonSource")%>%
+  filter(Isolate != "3B" | SICA != "Chloramphenicol") %>%
+  filter(Isolate != "3C" | SICA != "Chloramphenicol") %>%
+  filter(Isolate != "3C" | SICA != "Tetracycline") %>%
+  filter(Isolate != "3E" | SICA != "Streptothricin") %>%
+  filter(Isolate != "3G" | SICA != "Chloramphenicol") %>%
+  filter(Isolate != "3F" | SICA != "Streptothricin")
+
+#summarise across all isolates 
+mapSum3 <- nutODLim3combo %>%
+  group_by(SICA, nutCat)%>%
+  summarise(count = n())%>%
+  ungroup()%>%
+  group_by(SICA) %>%
+  mutate(total = sum(count),
+         prop = count/total)
+
+mapSum3$prop <- round(mapSum3$prop, 2)
+mapSum3$nutCat <- factor(mapSum3$nutCat, levels = c("supp", "decre", "incre", "induc", "no_grow"))
+
+F2A<- mapSum3 %>%
+  filter(nutCat != "no_grow")%>%
+  ggplot(., aes(nutCat, prop, fill = nutCat))+
+  geom_col(alpha=0.85)+
+  facet_wrap(~SICA, nrow=6)+
+  scale_fill_manual(values = c("#EA725D", "#F5BB62", "#85D1D1", "#5499C7"),
+                    labels = c("Suppressed Growth", "Reduced Growth", "Increased Growth", "Induced Growth"),
+                    name = "")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(size = 8),
+        strip.text.x = element_text(colour = 'grey15', face = "bold", size = 8))+
+  labs(x = "",
+       y = "Freq. of change in isolate growth with SICA\n")+
+  scale_y_continuous(limits = c(0, 0.45), breaks = seq(0, 0.45, by = 0.2))
+
+```
+
+```{r, fig.dim=c(3.55, 5.5)}
+# HNI 
+
+nutODLim4 <- nutCat %>%
+  filter(Plot == "4",
+         SICA == "Control") %>%
+  group_by(CarbonSource) %>%
+  summarise(mean = mean(OD))
+
+nutChangeCat4 <- nutChangeCat %>%
+  filter(Plot == "4")
+
+#manually remove isolates with niche.width > 25 & total.growth >= 2
+nutODLim4combo <- merge(nutChangeCat4, nutODLim4, by = "CarbonSource")%>%
+  filter(Isolate != "4E" | SICA != "Chloramphenicol") 
+
+#summarise across all isolates 
+mapSum4 <- nutODLim4combo %>%
+  group_by(SICA, nutCat)%>%
+  summarise(count = n())%>%
+  ungroup()%>%
+  group_by(SICA) %>%
+  mutate(total = sum(count),
+         prop = count/total)
+
+mapSum4$prop <- round(mapSum4$prop, 2)
+mapSum4$nutCat <- factor(mapSum4$nutCat, levels = c("supp", "decre", "incre", "induc", "no_grow"))
+
+F2B<- mapSum4 %>%
+  filter(nutCat != "no_grow")%>%
+  ggplot(., aes(nutCat, prop, fill = nutCat))+
+  geom_col(alpha=0.85)+
+  facet_wrap(~SICA, nrow=6)+
+  scale_fill_manual(values = c("#EA725D", "#F5BB62", "#85D1D1", "#5499C7"),
+                    labels = c("Suppressed Growth", "Reduced Growth", "Increased Growth", "Induced Growth"),
+                    name = "")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(size = 8),
+        strip.text.x = element_text(colour = 'grey15', face = "bold", size = 8))+
+  labs(x = "",
+       y = "Freq. of change in isolate growth with SICA\n")+
+  scale_y_continuous(limits = c(0, 0.45), breaks = seq(0, 0.45, by = 0.2))
+
+ggarrange(F2A, NULL, F2B,
+          nrow = 1, 
+          widths = c(1, 0.1, 1))
+
+ggsave("Fig2.pdf", width = 3.55, height = 5.5, units = "in", device = cairo_pdf)
+
+```
+
+
+### Figure 3 
+```{r, fig.dim=c(6, 4)}
+
+# Escape Ratio 
+escape <- read.csv("escape_ratio.csv")
+
+escapeLong <- escape %>%
+  pivot_longer(cols = c(alt_escape_ratio_x_from_y, alt_escape_ratio_y_from_x), names_to = "direction", values_to = "escapeRatio")%>%
+  mutate(target = case_when(direction == "alt_escape_ratio_x_from_y" ~ Isolate_x, direction == "alt_escape_ratio_y_from_x" ~Isolate_y),
+         pairing = case_when(direction == "alt_escape_ratio_x_from_y" ~ Isolate_y, direction == "alt_escape_ratio_y_from_x" ~Isolate_x))
+
+cleanLong <- escapeLong[,-2:-3]
+
+cleanLong <- cleanLong[,-3:-4] %>%
+  mutate(log = log(escapeRatio),
+         logE = case_when(log == "-Inf" ~ 0,
+                          log != "-Inf" ~ log))
+
+
+##categorize change in growth as increase or decreasing using 10% cut off for "change" 
+
+split <- cleanLong %>%
+  mutate(comp = case_when(logE >= 0.1 ~ "decrease", 
+                          #decrease comp (inc. CFG)
+                          logE <= -0.1 ~ "increase", 
+                          # increase comp (dec CFG)
+                          logE > -0.1 & logE < 0.1 ~ "no change"))
+```
+
+#### 3B
+```{r}
+split %>%
+  filter(comp != 'no change')%>%
+ggplot(., aes(x=logE, fill = comp))+
+  geom_histogram(alpha=0.8, color =" white", size=0.2, breaks = seq(-6, 6, 0.5), aes(y=..count../sum(..count..)))+
+  geom_vline(xintercept = 0, color = "white", size = 0.75)+
+  geom_vline(xintercept = 0, lty = 3, color = "grey30")+
+  theme_minimal()+
+  facet_wrap(~Plot)+
+  labs(x = "",
+       y = "proportion of interactions\n",
+       fill = "")+
+  scale_fill_manual(values = c("#76add2", "#ee8e7d"),
+                    labels = c("decrease with SICA", "increase with SICA")
+                    )+
+  theme(legend.position = "none")+
+  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02))
+
+ggsave("Fig3.pdf", width = 6, height = 4, units = "in", device = cairo_pdf)
+
+
+#chi-squared test difference between Plot: 
+splitSum <- split %>%
+  group_by(Plot, comp)%>%
+  summarise(count = n())%>%
+  arrange(comp)
+
+chiPlot <- matrix(splitSum$count,
+               nrow = 3, 
+               byrow = TRUE, 
+               dimnames = list(c("decreasedComp", "increaseComp", "noChange"), 
+                               c("LNI", "HNI")))
+chiPlot
+
+chisq.test(chiPlot)
+
+chiPlotPH <- chisq.test(chiPlot)
+residuals(chiPlotPH, type = "standardized")
+
+```
+
+#### 3C
+```{r}
+
+splitSumDiff<- split %>%
+  group_by(Plot, SICA, comp)%>%
+  summarise(count = n()) %>%
+  ungroup() %>%
+  group_by(Plot, SICA) %>%
+  mutate(total = sum(count),
+         change = round((count/total)*100,1))
+
+#chi squared plot difference chloramphenicol 
+splitSumChlor <- split %>%
+  filter(SICA == "Chloramphenicol",
+         comp != "no change")%>%
+  group_by(Plot, comp)%>%
+  summarise(count = n())%>%
+  arrange(comp)
+
+chiChlor <- matrix(splitSumChlor$count, 
+               nrow = 2, 
+               byrow = TRUE, 
+               dimnames = list(c("decreaseComp", "increaseComp"), 
+                               c("LNI", "HNI")))
+chiChlor 
+
+chisq.test(chiChlor)
+
+#chi squared plot difference tetracycline 
+splitSumTet <- split %>%
+  filter(SICA == "Tetracycline",
+         comp != "no change")%>%
+  group_by(Plot, comp)%>%
+  summarise(count = n()) %>%
+  arrange(comp)
+
+chiTet <- matrix(splitSumTet$count, 
+               nrow = 2, 
+               byrow = TRUE, 
+               dimnames = list(c("decreaseComp", "increaseComp"), 
+                               c("LNI", "HNI")))
+chiTet
+chisq.test(chiTet)
+
+```
+
+
+### Figure 4
+```{r, fig.dim=c(8,4)}
+altEscape <- escape [,-5:-6] 
+
+logEscape <- altEscape %>%
+  mutate(logX = log(alt_escape_ratio_x_from_y),
+         logY = log(alt_escape_ratio_y_from_x)) %>%
+  filter(logX != "-Inf")%>%
+  filter(logY != "-Inf")%>%
+  mutate(direct=case_when(
+    logX >= 0.09 & logY >= 0.09 ~ "++",
+    logX <= -0.11 & logY <= -0.11 ~ "--",
+    logX >= 0.09 & logY <= -0.11 ~ "+-",
+    logY >= 0.09 & logX <= -0.11 ~ "+-",
+    logY < 0.09 & logY > -0.11 & logX < 0.09 & logX > -0.11~"00",
+    logY < 0.09 & logY > -0.11 & logX >= 0.09 ~ "+0",
+    logX < 0.09 & logX > -0.11 & logY >= 0.09 ~ "+0",
+    logY < 0.09 & logY > -0.11 & logX <= -0.11 ~ "-0",
+    logX < 0.09 & logX > -0.11 & logY <= -0.11 ~ "-0"
+  ))
+#log 1.1 or 0.9
+
+escapeSum <- logEscape %>%
+  group_by(Plot, SICA, direct)%>%
+  summarise(counts = n())
+
+escapeSum2 <- escapeSum %>%
+  group_by(Plot, SICA)%>%
+  mutate(total = sum(counts)) %>%
+  ungroup() %>%
+  mutate(percent = (counts/total)*100) %>%
+  mutate(Treatment = case_when(Plot == "3" ~ "LNI",
+                               Plot == "4" ~ "HNI"))
+
+escapeSum2$direct <- factor(escapeSum2$direct, levels = c("++", "+0", "+-", "-0", "--","00"))
+
+escapeSum2$Treatment <- factor(escapeSum2$Treatment, levels = c("LNI", "HNI"))
+
+escapeSum2$SICA <- factor(escapeSum2$SICA, levels = c("Chloramphenicol", "Tetracycline", "Streptomycin", "Streptothricin", "Rifampicin", "Vancomycin"))
+  
+escapeSum2 %>%
+  ggplot(., aes(direct, percent, fill = direct))+
+  geom_col(alpha=0.9)+
+  facet_grid(Treatment~SICA)+
+  scale_fill_manual(values = c("#76add2", "#CEE9E9", "#A0CECE", "#F6D283", "#E79789", "grey85"))+
+  scale_x_discrete()+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.spacing = unit(0.5, "lines"),
+        axis.text.x=element_text(size=6.5),
+        axis.title.y=element_text(size=10),
+        strip.text.x=element_text(face = "bold"))+
+  labs(x = "",
+       y = "Frequency (%)\n")
+
+ggsave("Fig4.pdf", width = 8, height = 4, units = "in", device = cairo_pdf)
+
+escapeStats <- logEscape %>%
+  group_by(Plot, direct)%>%
+  summarise(counts = n())
+
+new_row <- data.frame(Plot = 4, direct = "++", counts = 0) 
+#add row for plot 4 ++ as 0
+
+escapeStatsFull <- rbind(escapeStats, new_row)%>%
+  arrange(direct)
+
+escapeChi <- matrix(escapeStatsFull$counts,
+               nrow = 6, 
+               byrow = TRUE, 
+               dimnames = list(c("++", "+-", "+0", "--", "-0", "00"), 
+                               c("LNI", "HNI")))
+
+escapeChi
+
+chiq<- chisq.test(escapeChi, simulate.p.value = TRUE) 
+#simulate due to low counts
+chiq
+
+residuals(chiq, type = "standardized")
+
+```
+
+
+
+## Supplement 
+
+#### Table S1
+```{r}
+#soil data
+soilData <- read.csv("SoilData.csv")%>%
+  filter(LabPlot_ID == 3| LabPlot_ID == 4)
+
+soilSum <- soilData %>%
+  group_by(LabPlot_ID)%>%
+  summarise(pH = mean(pH),
+            BrayP = mean(Bray.P),
+            K = mean(K),
+            totalC = mean(Total.C),
+            NO3N = mean(NO3.N))
+
+#t-test: 
+t.test(pH ~ LabPlot_ID, data=soilData)
+
+```
+
+#### Table S2
+```{r}
+#MIC values
+rawData <- read.csv("MICSICA_data.csv")%>%
+  filter(Value == "MIC")%>%
+  pivot_longer(cols = Streptomycin:Streptothricin,
+               names_to = "antibio",
+               values_to = "MIC")%>%
+  mutate(plot = str_sub(Isolate, 1, 1))
+
+#MIC value anova
+mod3<- aov(MIC~plot, data = rawData)
+summary(mod3)
+```
+
+#### Figure S1
+```{r}
+
+#niche width difference w/ and w/o SICA
+diffSum %>%
+  mutate(group = case_when(SICA == "Control" ~ "Control",
+                           SICA != "Control" ~ "With SICA"))%>%
+  ggplot(., aes(group, niche.width, fill = as.factor(Plot)))+
+  geom_bar(stat = "summary",
+           width = 0.7,
+           position = position_dodge(width = 0.8), 
+           alpha=0.8)+
+  geom_errorbar(stat = "summary",
+                position = position_dodge(width = 0.8),
+                width = 0.1,
+                show.legend = F)+
+  scale_fill_manual(values = c("#ba565c", "#65a4c2"),
+                    labels = c("Low Nutrient Isolates", 
+                               "High Nutrient Isolates"),
+                    name = "")+
+  theme_minimal()+
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom")+
+  labs(x = "",
+       y = "Niche Width\n")+
+  coord_cartesian(ylim = c(65, 90))
+
+# niche width t.test without SICA
+diffSum %>%
+  filter(SICA == "Control")%>%
+  t.test(niche.width ~ Plot, data = .)
+
+# niche width t.test with SICA
+diffSum %>%
+  filter(SICA != "Control")%>%
+  t.test(niche.width ~ Plot, data = .)
+
+```
+
+#### Figure S2
+```{r, fig.dim = c(8.5, 9)}
+#LNI
+#y-axis ordered by mean growth in control 
+ggplot(nutODLim3combo, aes(Letter, reorder(CarbonSource, mean), fill=nutCat))+
+  geom_tile()+
+  facet_wrap(~SICA, nrow = 1, scales = "free_x")+
+  scale_fill_manual(values = c("#EA725D","#F5BB62", "#85D1D1", "#5499C7", "grey99"),
+                    labels = c("Suppressed Growth","Reduced Growth", "Increased Growth", "Induced Growth", "No Change"),
+                    name = "")+
+  labs(x="",
+       y="")+
+  theme_light()+
+  theme(legend.position = "none",
+        legend.text = element_text (size=8),
+        axis.title.x = element_text (size = 8), 
+        axis.text.y = element_text(size = 6),
+        axis.text.x = element_blank(), 
+        strip.text.y.left = element_text(angle = 0),
+        strip.background =element_rect(fill="grey95"),
+        strip.text.x = element_text(colour = 'grey15', face = "bold", size = 8),
+        strip.text.y = element_text(colour = 'grey15'))
+
+ggsave("FigS2.pdf", width = 8.5, height =9, units = "in")
+```
+
+#### Figure S3
+```{r, fig.dim = c(8.5, 9)}
+#HNI
+#y-axis ordered by mean growth in control 
+
+ggplot(nutODLim4combo, aes(Letter, reorder(CarbonSource, mean), fill=nutCat))+
+  geom_tile()+
+  facet_wrap(~SICA, nrow = 1, scales = "free_x")+
+  scale_fill_manual(values = c("#EA725D","#F5BB62", "#85D1D1", "#5499C7", "grey99"),
+                    labels = c("Suppressed Growth","Reduced Growth", "Increased Growth", "Induced Growth", "No Change"),
+                    name = "")+
+  labs(x="",
+       y="")+
+  theme_light()+
+  theme(legend.position = "none",
+        legend.text = element_text (size=8),
+        axis.title.x = element_text (size = 8), 
+        axis.text.y = element_text(size = 6),
+        axis.text.x = element_blank(), 
+        strip.text.y.left = element_text(angle = 0),
+        strip.background =element_rect(fill="grey95"),
+        strip.text.x = element_text(colour = 'grey15', face = "bold", size = 8),
+        strip.text.y = element_text(colour = 'grey15'))
+
+ggsave("FigS3.pdf", width = 8.5, height =9, units = "in")
+
+```
+
+#### Figure S4
+```{r, fig.dim = c(8, 5)}
+
+splitPlot <- split  %>%
+    mutate(Treatment = case_when(Plot == "3" ~ "LNI",
+                               Plot == "4" ~ "HNI"))
+
+splitPlot$Treatment <- factor(splitPlot$Treatment, levels = c("LNI", "HNI"))
+
+splitPlot %>%
+  filter(comp != 'no change')%>%
+ggplot(., aes(x=log, fill = comp))+
+  geom_histogram(alpha=0.8, color =" white", size=0.2, breaks = seq(-6, 6, 0.5), aes(y=..count../sum(..count..)))+
+  geom_vline(xintercept = 0, color = "white", size = 0.75)+
+  geom_vline(xintercept = 0, lty = 3, color = "grey30")+
+  theme_minimal()+
+  facet_grid(Treatment~SICA)+
+  labs(x = "",
+       y = "proportion of interactions\n",
+       fill = "")+
+  scale_fill_manual(values = c("#76add2", "#ee8e7d"),
+                    labels = c("decrease with SICA", "increase with SICA")
+  )+
+  theme(legend.position = "none")+
+  scale_y_continuous(breaks = seq(0, 0.1, by = 0.01))
+
+ggsave("FigS4.pdf", width = 8, height = 5, units = "in", device = cairo_pdf)
+```
+#### Figure S5
+```{r, fig.dim=c(3.5, 5.5)}
+#LNI Change in Growth per Carbon Source
+heatChange3<- nutODLim3combo %>%
+  mutate(testGroup = case_when(
+    nutCat == "no_grow" ~ "W",
+    nutCat != "no_grow" ~ "N")) %>%
+  group_by(CarbonSource)%>%
+  mutate(avgChange = round(mean(Change),3),
+         group = "A",
+         color = case_when(
+           avgChange > 0 ~ "B",
+           avgChange < 0 ~ "R",
+           avgChange == 0 ~ "W"
+         ))
+
+#HNI Change in Growth per Carbon Source
+heatChange4<- nutODLim4combo %>%
+  mutate(testGroup = case_when(
+    nutCat == "no_grow" ~ "W",
+    nutCat != "no_grow" ~ "N")) %>%
+  group_by(CarbonSource)%>%
+  mutate(avgChange = round(mean(Change),3),
+         group = "A",
+         color = case_when(
+           avgChange > 0 ~ "B",
+           avgChange < 0 ~ "R",
+           avgChange == 0 ~ "W"
+         ))
+
+#Combine
+changeCombo  <- full_join(heatChange3, heatChange4, by = intersect(names(heatChange3), names(heatChange4)))
+
+changeCombo %>%
+  group_by(Plot, CarbonType)%>%
+  summarise(changeAvg = mean(Change),
+            sd = sd(Change),
+            n=n(),
+            se=sd/sqrt(n))%>%
+  ggplot(., aes(changeAvg, reorder(CarbonType, -changeAvg), fill = Plot))+
+  geom_col(position = position_dodge2(padding = 0.15),
+           alpha=0.98,
+           width = 0.8)+
+      geom_errorbar(aes(xmin = changeAvg-se, 
+                        xmax = -0.0009,
+                        color = Plot),
+                position = position_dodge(width = .85),
+                size = 0.5, 
+                width=0.2,
+                show.legend = F)+
+  geom_text(position = position_dodge(width = .85),
+            aes(x = changeAvg -se, 
+                label = round(changeAvg, 2), 
+                hjust = 1.2,
+                color = Plot),
+            size = 3,
+            fontface = "bold")+
+  scale_fill_manual(values = c("#ee8e7d","#76add2"))+
+  scale_color_manual(values = c("#ee8e7d","#76add2"))+
+  theme_minimal()+
+  scale_y_discrete(position = "right")+
+  theme(legend.position = "none")+
+  labs(x = "",
+       y= "")+
+  coord_cartesian(clip = "off",
+                  xlim = c(-0.11, 0))
+
+
+ggsave("FigS5.pdf", width = 3.5, height = 5.5, units = "in", device = cairo_pdf)
+```
+
+#### Figure S6
+```{r, fig.dim = c(8.5, 9)}
+
+#LNI Change in Growth per Carbon Source
+ggplot(heatChange3, aes(Letter, reorder(CarbonSource, mean), fill=Change))+
+  geom_tile()+
+  facet_grid(CarbonType~SICA, scales = "free", space = "free")+
+  scale_fill_gradientn(
+    colours = colorRampPalette(c('#FD7446', '#FFFFFF', '#709AE1'))(100),
+    breaks=c(-0.55,0, 0.55),
+    limits=c(-0.55, 0.55),
+    name=""
+  )+
+  geom_tile(data = ~ subset(., testGroup == "W"),
+            fill="white")+
+  coord_cartesian(clip = "off")+
+  labs(x="",
+       y="")+
+  theme_light()+
+  theme(legend.position = "none",
+        axis.title.x = element_text (size = 8), 
+        axis.text.y = element_text(size = 6),
+        axis.text.x = element_blank(), 
+        strip.text.y.left = element_text(angle = 0),
+        strip.background =element_rect(fill="grey95"),
+        strip.text.x = element_text(colour = 'grey15', face = "bold", size = 7),
+        strip.text.y = element_blank(),
+        strip.background.y=element_blank())
+
+ggsave("FigS6.pdf", width = 8.5, height =9, units = "in")
+
+#mean across carbon classes
+heatChange3 %>%
+  group_by(CarbonType)%>%
+  summarise(mean = round(mean(avgChange),3))
+```
+
+#### Figure S7
+```{r, fig.dim=c(8.5, 9)}
+
+#HNI Change in Growth per Carbon Source
+ggplot(heatChange4, aes(Letter, reorder(CarbonSource, mean), fill=Change))+
+  geom_tile()+
+  facet_grid(CarbonType~SICA, scales = "free", space = "free")+
+  scale_fill_gradientn(
+    colours = colorRampPalette(c('#FD7446', '#FFFFFF', '#709AE1'))(100),
+    breaks=c(-0.55,0, 0.55),
+    limits=c(-0.55, 0.55),
+    name=""
+  )+
+  geom_tile(data = ~ subset(., testGroup == "W"),
+            fill="white")+
+  coord_cartesian(clip = "off")+
+  labs(x="",
+       y="")+
+  theme_light()+
+  theme(legend.position = "none",
+        axis.title.x = element_text (size = 8), 
+        axis.text.y = element_text(size = 6),
+        axis.text.x = element_blank(), 
+        strip.text.y.left = element_text(angle = 0),
+        strip.background =element_rect(fill="grey95"),
+        strip.text.x = element_text(colour = 'grey15', face = "bold", size = 7),
+        strip.text.y = element_blank(),
+        strip.background.y=element_blank())
+
+ggsave("FigS7.pdf", width = 8.5, height =9, units = "in")
+
+#mean across carbon classes
+heatChange4 %>%
+  group_by(CarbonType)%>%
+  summarise(mean = round(mean(avgChange),3))
+
+```
+
