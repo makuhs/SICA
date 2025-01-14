@@ -1,0 +1,97 @@
+﻿CarbonSource,CarbonType,Nutrient,BiologWell,Count,NumType
+2'-deoxy adenosine,Aromatics,N86,H2,86,1
+Adenosine,Aromatics,N85,H1,85,2
+inosine,Aromatics,N87,H3,87,3
+thymidine,Aromatics,N88,H4,88,4
+"2,3-butanediol",Carbohydrate,N83,G11,83,5
+3-methyl-D-glucose,Carbohydrate,N35,C11,35,6
+a-D-glucose,Carbohydrate,N23,B11,23,7
+a-D-lactose,Carbohydrate,N25,C1,25,8
+a-methyl-D-galactoside,Carbohydrate,N33,C9,33,9
+a-methyl-D-glucoside,Carbohydrate,N36,C12,36,10
+a-methyl-D-mannoside,Carbohydrate,N38,D2,38,11
+Amygdalin,Carbohydrate,N12,A12,12,12
+Arbutin,Carbohydrate,N15,B3,15,13
+b-methyl-D-galactoside,Carbohydrate,N34,C10,34,14
+b-methyl-D-glucoside,Carbohydrate,N37,D1,37,15
+D-arabitol,Carbohydrate,N14,B2,14,16
+D-cellobiose,Carbohydrate,N16,B4,16,17
+D-fructose,Carbohydrate,N17,B5,17,18
+D-galactose,Carbohydrate,N19,B7,19,19
+D-mannitol,Carbohydrate,N29,C5,29,20
+D-mannose,Carbohydrate,N30,C6,30,21
+D-melezitose,Carbohydrate,N31,C7,31,22
+D-Melibiose,Carbohydrate,N32,C8,32,23
+D-psicose,Carbohydrate,N40,D4,40,24
+D-raffinose,Carbohydrate,N41,D5,41,25
+D-ribose,Carbohydrate,N43,D7,43,26
+D-sorbitol,Carbohydrate,N46,D10,46,27
+D-tagatose,Carbohydrate,N49,E1,49,28
+D-trehalose,Carbohydrate,N50,E2,50,29
+D-xylose,Carbohydrate,N53,E5,53,30
+Gentiobiose,Carbohydrate,N21,B9,21,31
+Glycerol,Carbohydrate,N84,G12,84,32
+L-arabinose,Carbohydrate,N13,B1,13,33
+L-fucose,Carbohydrate,N18,B6,18,34
+l-rhamnose,Carbohydrate,N42,D6,42,35
+lactulose,Carbohydrate,N26,C2,26,36
+m-inositol,Carbohydrate,N24,B12,24,37
+maltose,Carbohydrate,N27,C3,27,38
+maltotriose,Carbohydrate,N28,C4,28,39
+N-acetyl-D-glucosamine,Carbohydrate,N10,A10,10,40
+N-actyl-b-D-mannosamine,Carbohydrate,N11,A11,11,41
+palatinose,Carbohydrate,N39,D3,39,42
+Salicin,Carbohydrate,N44,D8,44,43
+Sedoheptulosan,Carbohydrate,N45,D9,45,44
+stachyose,Carbohydrate,N47,D11,47,45
+sucrose,Carbohydrate,N48,D12,48,46
+turanose,Carbohydrate,N51,E3,51,47
+xylitol,Carbohydrate,N52,E4,52,48
+a-hydroxybutyric scid,Carboxylic Acid,N55,E7,55,49
+a-ketoglutaric acid,Carboxylic Acid,N59,E11,59,50
+a-ketovaleric acid,Carboxylic Acid,N60,E12,60,51
+Acetic acid,Carboxylic Acid,N54,E6,54,52
+b-hydroxybutyric acid,Carboxylic Acid,N56,E8,56,53
+D-galacturonic acid,Carboxylic Acid,N20,B8,20,54
+D-gluconic acid,Carboxylic Acid,N22,B10,22,55
+D-malic acid,Carboxylic Acid,N64,F4,64,56
+l-lactic acid,Carboxylic Acid,N63,F3,63,57
+L-malic acid,Carboxylic Acid,N65,F5,65,58
+p-hydroxy-phenylacetic acid,Carboxylic Acid,N58,E10,58,59
+propionic acid,Carboxylic Acid,N68,F8,68,60
+pyruvic acid,Carboxylic Acid,N69,F9,69,61
+succinic acid,Carboxylic Acid,N71,F11,71,62
+y-hydroxybutyric acid,Carboxylic Acid,N57,E9,57,63
+Water,Control,N1,A1,1,64
+d-lactic acid methyl ester,Ester,N62,F2,62,65
+pyruvic acid methyl ester,Ester,N66,F6,66,66
+succinic acid mono-methyl ester,Ester,N67,F7,67,67
+D-alanine,N-Source,N74,G2,74,68
+glycyl-L-glutamic acid,N-Source,N79,G7,79,69
+l-alaninamide,N-Source,N73,G1,73,70
+l-alanine,N-Source,N75,G3,75,71
+l-alanyl glycine,N-Source,N76,G4,76,72
+l-asparagine,N-Source,N77,G5,77,73
+l-glutamic acid,N-Source,N78,G6,78,74
+L-Pyroglutamic acid,N-Source,N80,G8,80,75
+L-serine,N-Source,N81,G9,81,76
+lactamide,N-Source,N61,F1,61,77
+n-acetyl-L glutamic acid,N-Source,N72,F12,72,78
+Putrescine,N-Source,N82,G10,82,79
+succinamic acid,N-Source,N70,F10,70,80
+a-D-glucose-1-phosphate,P-Source,N94,H10,94,81
+Adenosine-5'-monophosphate,P-Source,N90,H6,90,82
+D-fructose-6-phosphate,P-Source,N93,H9,93,83
+D-glucose-6-phosphate,P-Source,N95,H11,95,84
+D-L-a-glycerol phosphate,P-Source,N96,H12,96,85
+Thymidine-5'-monophosphate,P-Source,N91,H7,91,86
+uridine,P-Source,N89,H5,89,87
+Uridine-5'monophosphate,P-Source,N92,H8,92,88
+a-Cyclodextrin,Polymer,N2,A2,2,89
+b-Cyclodextrin,Polymer,N3,A3,3,90
+Dextrin,Polymer,N4,A4,4,91
+Glycogen,Polymer,N5,A5,5,92
+Inulin,Polymer,N6,A6,6,93
+Mannan,Polymer,N7,A7,7,94
+Tween40,Polymer,N8,A8,8,95
+Tween80,Polymer,N9,A9,9,96

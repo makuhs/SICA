@@ -64,24 +64,23 @@ library(tidyverse)
 library(multcomp)
 library(vegan)
 library(ggpubr)
-library(dplyr)
 library(vcd)
 ```
 
 ## Data 
 ### Data Load
 ```{r}
-data <- read.csv("fullBiologSICA.csv")%>%
-  subset(select = -X )
+data <- read.csv("KuhsSICA_dataframes/fullBiologByWellSICA.csv")
 ```
 
 ### Nutrient Use Profiles
 ```{r}
+#Calculate Phenotype
 metrics <- data %>%
-  mutate(niche.width = rowSums(.[5:99]!=0))%>%
-  mutate(total.growth = rowSums(.[5:99]))%>%
-  mutate(growth.eff = .$total.growth / .$niche.width)%>%
-  dplyr::select(Plot, Letter,SICA, Isolate, niche.width, total.growth, growth.eff)
+  mutate(niche.width = rowSums(.[4:98]!=0),
+         total.growth = rowSums(.[4:98]),
+         growth.eff = total.growth/niche.width)%>%
+  dplyr::select(Plot, SICA, Isolate, niche.width, total.growth, growth.eff)
 
 metricControl <- metrics %>%
   filter(SICA == "Control")%>%
@@ -91,12 +90,12 @@ metricControl <- metrics %>%
 metricSICA <- metrics %>%
   filter(SICA != "Control")
 
-metrics2 <- merge(metricSICA, metricControl, by=c("Plot", "Letter", "Isolate")) %>%
+metricsFinal <- merge(metricSICA, metricControl, by=c("Plot", "Isolate")) %>%
   group_by(SICA) %>%
   filter (niche.width > 25 & total.growth >= 2) # remove isolates with extreme low growth
 
 #calculate difference from control 
-diff <- metrics2 %>%
+diff <- metricsFinal %>%
   mutate(nw_diff = (niche.width - nw_c),
          tg_diff = (total.growth - tg_c),
          ge_diff = (growth.eff - ge_c)) 
@@ -376,7 +375,7 @@ biolog_long <- data %>%
                values_drop_na = TRUE)
 
 #add specific carbon source information to growth data
-c_class <- read.csv("Biolog_Nutrient_List.csv")
+c_class <- read.csv("KuhsSICA_dataframes/Biolog_Nutrient_List.csv")
 cClassTable <- c_class[,c(1,2)]
 
 nutCat <- merge(biolog_long, c_class, by="BiologWell")%>%
@@ -389,7 +388,7 @@ nutCat$Plot <- as.factor(nutCat$Plot)
 control <- nutCat %>%
   filter(SICA == "Control")
 
-nutChange <- merge(nutCat, control, by=c("Isolate", "Nutrient", "BiologWell", "Plot", "Letter", "CarbonSource", "CarbonType", "Count", "NumType"))%>%
+nutChange <- merge(nutCat, control, by=c("Isolate", "Nutrient", "BiologWell", "Plot", "CarbonSource", "CarbonType", "Count", "NumType"))%>%
   rename(SICA = SICA.x,
          Control = SICA.y,
          ODs = OD.x,
@@ -534,7 +533,7 @@ ggsave("Fig2.pdf", width = 3.55, height = 5.5, units = "in", device = cairo_pdf)
 ```{r, fig.dim=c(6, 4)}
 
 # Escape Ratio 
-escape <- read.csv("escape_ratio.csv")
+escape <- read.csv("KuhsSICA_dataframes/escape_ratio.csv")
 
 escapeLong <- escape %>%
   pivot_longer(cols = c(alt_escape_ratio_x_from_y, alt_escape_ratio_y_from_x), names_to = "direction", values_to = "escapeRatio")%>%
@@ -738,8 +737,11 @@ residuals(chiq, type = "standardized")
 #### Table S1
 ```{r}
 #soil data
-soilData <- read.csv("SoilData.csv")%>%
+soilData <- read.csv("KuhsSICA_dataframes/SoilData.csv")%>%
   filter(LabPlot_ID == 3| LabPlot_ID == 4)
+   # mutate(treat = case_when(
+   # LabPlot_ID %in% c(1, 3, 5) ~"A",
+   # T ~ "B"))
 
 soilSum <- soilData %>%
   group_by(LabPlot_ID)%>%
@@ -750,14 +752,14 @@ soilSum <- soilData %>%
             NO3N = mean(NO3.N))
 
 #t-test: 
-t.test(pH ~ LabPlot_ID, data=soilData)
+t.test(NO3.N ~ LabPlot_ID, data=soilData)
 
 ```
 
 #### Table S2
 ```{r}
 #MIC values
-rawData <- read.csv("MICSICA_data.csv")%>%
+rawData <- read.csv("KuhsSICA_dataframes/MICSICA_data.csv")%>%
   filter(Value == "MIC")%>%
   pivot_longer(cols = Streptomycin:Streptothricin,
                names_to = "antibio",
@@ -813,7 +815,7 @@ diffSum %>%
 ```{r, fig.dim = c(8.5, 9)}
 #LNI
 #y-axis ordered by mean growth in control 
-ggplot(nutODLim3combo, aes(Letter, reorder(CarbonSource, mean), fill=nutCat))+
+ggplot(nutODLim3combo, aes(Isolate, reorder(CarbonSource, mean), fill=nutCat))+
   geom_tile()+
   facet_wrap(~SICA, nrow = 1, scales = "free_x")+
   scale_fill_manual(values = c("#EA725D","#F5BB62", "#85D1D1", "#5499C7", "grey99"),
@@ -840,7 +842,7 @@ ggsave("FigS2.pdf", width = 8.5, height =9, units = "in")
 #HNI
 #y-axis ordered by mean growth in control 
 
-ggplot(nutODLim4combo, aes(Letter, reorder(CarbonSource, mean), fill=nutCat))+
+ggplot(nutODLim4combo, aes(Isolate, reorder(CarbonSource, mean), fill=nutCat))+
   geom_tile()+
   facet_wrap(~SICA, nrow = 1, scales = "free_x")+
   scale_fill_manual(values = c("#EA725D","#F5BB62", "#85D1D1", "#5499C7", "grey99"),
@@ -892,7 +894,7 @@ ggplot(., aes(x=log, fill = comp))+
 ggsave("FigS4.pdf", width = 8, height = 5, units = "in", device = cairo_pdf)
 ```
 #### Figure S5
-```{r, fig.dim=c(3.5, 5.5)}
+```{r, messages = F, warnings = F, fig.dim=c(3.5, 5.5)}
 #LNI Change in Growth per Carbon Source
 heatChange3<- nutODLim3combo %>%
   mutate(testGroup = case_when(
@@ -966,7 +968,7 @@ ggsave("FigS5.pdf", width = 3.5, height = 5.5, units = "in", device = cairo_pdf)
 ```{r, fig.dim = c(8.5, 9)}
 
 #LNI Change in Growth per Carbon Source
-ggplot(heatChange3, aes(Letter, reorder(CarbonSource, mean), fill=Change))+
+ggplot(heatChange3, aes(Isolate, reorder(CarbonSource, mean), fill=Change))+
   geom_tile()+
   facet_grid(CarbonType~SICA, scales = "free", space = "free")+
   scale_fill_gradientn(
@@ -1003,7 +1005,7 @@ heatChange3 %>%
 ```{r, fig.dim=c(8.5, 9)}
 
 #HNI Change in Growth per Carbon Source
-ggplot(heatChange4, aes(Letter, reorder(CarbonSource, mean), fill=Change))+
+ggplot(heatChange4, aes(Isolate, reorder(CarbonSource, mean), fill=Change))+
   geom_tile()+
   facet_grid(CarbonType~SICA, scales = "free", space = "free")+
   scale_fill_gradientn(
@@ -1034,6 +1036,5 @@ ggsave("FigS7.pdf", width = 8.5, height =9, units = "in")
 heatChange4 %>%
   group_by(CarbonType)%>%
   summarise(mean = round(mean(avgChange),3))
-
 ```
-
+#### Fin 
