@@ -1037,4 +1037,68 @@ heatChange4 %>%
   group_by(CarbonType)%>%
   summarise(mean = round(mean(avgChange),3))
 ```
+
+#### Phylogenetic 16S data 
+
+```{r}
+
+#### Tree
+
+library(ape)
+library(vegan)
+library(dplyr)
+library(stringr)
+library(phytools)
+
+tree <- ape::read.tree("KuhsSICA_dataframes/reverse.newick")
+
+# Reduce name structure
+new_tipLabels <- read.csv("KuhsSICA_dataframes/labelTree.csv")
+tree$tip.label <- new_tipLabels$name
+
+# Build metadata and filter to assigned groups
+treeMeta <- data.frame(
+  isolate = tree$tip.label,
+  group = case_when(
+    str_detect(tree$tip.label, "3") ~ "LNI",
+    str_detect(tree$tip.label, "4") ~ "HNI",
+    TRUE ~ NA
+  )) %>%
+  filter(!is.na(group))
+
+# Compute cophenetic distance
+dist_matrix <- cophenetic(tree)
+# Subset distance matrix
+dist_matrix <- dist_matrix[treeMeta$isolate, treeMeta$isolate]
+treeMeta <- treeMeta[match(rownames(dist_matrix), treeMeta$isolate), ]
+
+#check distribution
+bd <- betadisper(as.dist(dist_matrix), treeMeta$group)
+permutest(bd)
+
+# Run PERMANOVA
+adonis_result <- adonis2(as.dist(dist_matrix) ~ group, 
+                         data = treeMeta, 
+                         permutations = 999)
+print(adonis_result)
+
+# Filter tree to only HNI/LNI isolates
+tree_filtered <- keep.tip(tree, treeMeta$isolate)
+tree_ultra <- force.ultrametric(tree_filtered)
+
+# Filter control data and check overlap
+intersect(metricControl$Isolate, tree_ultra$tip.label)
+
+# Build named vectors
+niche_width <- setNames(control_df$niche.width, control_df$Isolate)
+total_growth <- setNames(control_df$total.growth, control_df$Isolate)
+
+# Run Blomberg's K
+k_nw <- phylosig(tree_ultra, niche_width, method = "K", test = TRUE, nsim = 999)
+k_tg <- phylosig(tree_ultra, total_growth, method = "K", test = TRUE, nsim = 999)
+
+print(k_nw)
+print(k_tg)
+```
+
 #### Fin 
